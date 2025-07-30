@@ -1,0 +1,46 @@
+name: base
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  # Core Python and Jupyter
+  - python=3.11
+  - jupyterlab=4.4.*
+  - jupyter_server=2.*
+  - ipykernel
+  - ipywidgets
+  
+  # Data science essentials
+  - numpy
+  - pandas
+  - matplotlib
+  - seaborn
+  - plotly
+  - scipy
+  - scikit-learn
+  
+  # AWS and S3 connectivity
+  - boto3
+  - s3fs
+  - botocore
+  
+  # Additional utilities
+  - requests
+  - urllib3
+  - pytz
+  - python-dateutil
+  
+  # File system utilities
+  - fs
+  - fsspec
+  
+  # Development tools
+  - git
+  - curl
+  - wget
+  
+  # pip packages that need to be installed via pip
+  - pip
+  - pip:
+    - jupyter-fs  # Main package for file system integration
+    - fs.s3fs     # PyFilesystem S3 backend for "pyfs" type resources 
