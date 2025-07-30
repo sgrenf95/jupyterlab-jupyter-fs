@@ -1,8 +1,8 @@
 # Jupyter Server Configuration with Download Blocking
-# Simple and effective approach to block ALL file downloads
+# SCIENTIFIC APPROACH: Testing one layer at a time
 
 import time
-from tornado.web import HTTPError, RequestHandler
+from tornado.web import RequestHandler
 from jupyterfs.metamanager import MetaManager
 
 print(f"🔒 {time.strftime('%H:%M:%S')} - Initializing download blocking...")
@@ -33,43 +33,26 @@ class DownloadBlocker(RequestHandler):
     def delete(self, *args, **kwargs): self.get(*args, **kwargs)
     def head(self, *args, **kwargs): self.get(*args, **kwargs)
 
-def apply_download_blocking():
-    """Apply core download blocking mechanisms."""
-    
-    # Block core Jupyter file handlers
-    try:
-        import jupyter_server.services.contents.handlers as core_handlers
-        core_handlers.FilesHandler = DownloadBlocker
-        print(f"✅ {time.strftime('%H:%M:%S')} - Replaced FilesHandler")
-    except Exception as e:
-        print(f"⚠️ {time.strftime('%H:%M:%S')} - Could not patch handlers: {e}")
-    
-    # Block contents manager download methods
-    try:
-        import jupyter_server.services.contents.manager as contents_manager_module
-        def blocked_download_url(self, path):
-            print(f"🚫 {time.strftime('%H:%M:%S')} - Blocked download URL: {path}")
-            raise HTTPError(403, "Downloads disabled")
-        contents_manager_module.ContentsManager.get_download_url = blocked_download_url
-        print(f"✅ {time.strftime('%H:%M:%S')} - Patched download methods")
-    except Exception as e:
-        print(f"⚠️ {time.strftime('%H:%M:%S')} - Could not patch contents manager: {e}")
-
 def hook_extension_loading():
-    """Hook into jupyter-fs extension to add download blocking."""
+    """
+    FINAL TEST: ONLY the jupyter-fs extension hook
+    
+    HYPOTHESIS: If jupyter-fs handles ALL downloads (including standard Jupyter ones),
+    then we only need this ONE layer, not the FilesHandler replacement.
+    """
     try:
         import jupyterfs.extension as jfs_ext
         original_load = jfs_ext._load_jupyter_server_extension
         
         def blocking_load(serverapp):
-            # Load original extension
+            # Load original extension first
             try:
                 result = original_load(serverapp)
             except Exception as e:
                 print(f"⚠️ {time.strftime('%H:%M:%S')} - Extension load warning: {e}")
                 result = None
             
-            # Add blocking handlers
+            # THE ONLY BLOCKING LAYER: URL patterns that block all download requests
             try:
                 web_app = serverapp.web_app
                 blocking_patterns = [
@@ -78,36 +61,25 @@ def hook_extension_loading():
                     (r".*/download/.*", DownloadBlocker),
                 ]
                 web_app.add_handlers(".*$", blocking_patterns)
-                print(f"✅ {time.strftime('%H:%M:%S')} - Added blocking handlers")
+                print(f"✅ {time.strftime('%H:%M:%S')} - Added ONLY blocking layer (URL patterns)")
             except Exception as e:
-                print(f"⚠️ {time.strftime('%H:%M:%S')} - Could not add handlers: {e}")
+                print(f"❌ {time.strftime('%H:%M:%S')} - CRITICAL: Could not add blocking handlers: {e}")
             
-            # Patch contents manager
-            try:
-                contents_manager = serverapp.contents_manager
-                for method_name in ['getDownloadUrl', 'get_download_url']:
-                    if hasattr(contents_manager, method_name):
-                        def make_blocker():
-                            def blocked(path):
-                                raise HTTPError(403, "Downloads disabled")
-                            return blocked
-                        setattr(contents_manager, method_name, make_blocker())
-                print(f"✅ {time.strftime('%H:%M:%S')} - Patched contents manager")
-            except Exception as e:
-                print(f"⚠️ {time.strftime('%H:%M:%S')} - Could not patch manager: {e}")
-            
-            print(f"🎉 {time.strftime('%H:%M:%S')} - Download blocking active!")
+            print(f"🎯 {time.strftime('%H:%M:%S')} - SINGLE layer blocking active!")
             return result
         
         jfs_ext._load_jupyter_server_extension = blocking_load
-        print(f"✅ {time.strftime('%H:%M:%S')} - Hooked extension loading")
+        print(f"✅ {time.strftime('%H:%M:%S')} - Hooked jupyter-fs extension (ONLY layer)")
         
     except Exception as e:
-        print(f"❌ {time.strftime('%H:%M:%S')} - Extension hook failed: {e}")
+        print(f"❌ {time.strftime('%H:%M:%S')} - CRITICAL: Extension hook failed: {e}")
 
-# Initialize download blocking
-apply_download_blocking()
+# Initialize ONLY the extension hook
 hook_extension_loading()
+
+# REMOVED: FilesHandler replacement (testing if it's redundant)
+# REMOVED: Contents manager patching (testing if it's redundant)
+# HYPOTHESIS: This single extension hook blocks ALL downloads
 
 # Jupyter Server Configuration
 c = get_config()
@@ -135,5 +107,5 @@ c.ServerApp.open_browser = False
 c.ContentsManager.allow_hidden = False
 
 print(f"✅ {time.strftime('%H:%M:%S')} - Configuration loaded - Downloads BLOCKED")
-print(f"🔒 Multi-layer download blocking active")
+print(f"🔒 Multi-layer download blocking active (Core + jupyter-fs)")
 print(f"📋 Users can view and edit files but cannot download them") 
