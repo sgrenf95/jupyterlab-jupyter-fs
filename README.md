@@ -76,18 +76,17 @@ This report provides a comprehensive technical analysis of the multi-layer downl
 3. [Implementation Details](#implementation-details)
 4. [Code Analysis](#code-analysis)
 5. [Security Verification](#security-verification)
-6. [Performance Impact](#performance-impact)
-7. [Maintenance Considerations](#maintenance-considerations)
+6. [Maintenance Considerations](#maintenance-considerations)
 
 ## Architecture Overview
 
 The download blocking system employs a **4-layer defense strategy** that intercepts download requests at multiple points in the JupyterLab/jupyter-fs stack:
 
 ```
-User Request → UI Layer → HTTP Layer → Contents Manager → Filesystem Backend
-     ↓            ↓           ↓             ↓               ↓
-   Plugin      Handler    Contents      Method         File Access
-  Blocking    Blocking   Blocking     Blocking         (Read Only)
+UI Layer → HTTP Layer → Contents Manager → Filesystem Backend
+    ↓           ↓             ↓                 ↓
+  Handler    Contents      Method           File Access
+  Blocking   Blocking      Blocking         (Read Only)
 ```
 
 ### Design Principles
@@ -161,32 +160,6 @@ web_app.add_handlers(".*$", blocking_patterns)
 
 **Security Impact**: **Medium** - Provides redundant protection for download endpoints.
 
-### Layer 4: Plugin-Level UI Blocking
-
-**Location**: `page_config.json`
-
-**Mechanism**:
-```json
-{
-  "disabledExtensions": {
-    "@jupyterlab/filebrowser-extension:download": true,
-    "@jupyterlab/docmanager-extension:download": true,
-    "@jupyterlab/notebook-extension:export": true,
-    // ... 12 more extensions
-  }
-}
-```
-
-**Function**: Disables JupyterLab UI extensions that provide download functionality.
-
-**Coverage**:
-- Right-click context menu downloads
-- Main menu "Download" options
-- Notebook export functionality
-- File browser download buttons
-
-**Security Impact**: **Medium** - Improves user experience by removing download UI elements rather than showing non-functional buttons.
-
 ## Implementation Details
 
 ### DownloadBlocker Class
@@ -247,35 +220,6 @@ def hook_extension_loading():
 - **Timing**: Ensures blocking is applied after jupyter-fs loads
 - **Compatibility**: Works with jupyter-fs extension loading process
 - **Graceful Fallback**: Continues if extension loading fails
-
-### Plugin Configuration
-
-The `page_config.json` file disables 15+ download-related plugins:
-
-```json
-{
-  "disabledExtensions": {
-    "@jupyterlab/filebrowser-extension:download": true,
-    "@jupyterlab/filebrowser-extension:context-menu-download": true,
-    "@jupyterlab/docmanager-extension:download": true,
-    "@jupyterlab/notebook-extension:export": true,
-    "@jupyterlab/notebook-extension:export-to-format": true,
-    "@jupyterlab/mainmenu-extension:export": true,
-    "@jupyterlab/mainmenu-extension:download": true,
-    "@jupyterlab/mainmenu-extension:file-export": true,
-    "@jupyterlab/application-extension:download": true,
-    "@jupyterlab/csvviewer-extension:download": true,
-    "@jupyterlab/imageviewer-extension:download": true,
-    "@jupyterlab/texteditor-extension:download": true,
-    "@jupyterlab/fileeditor-extension:download": true,
-    "@jupyterlab/notebook-extension:download-nb": true,
-    "@jupyterlab/notebook-extension:download-as": true
-  },
-  "lockedExtensions": {
-    // Same plugins locked to prevent re-enabling
-  }
-}
-```
 
 ## Code Analysis
 
@@ -355,29 +299,6 @@ The system successfully blocks:
 4. **Context Menu**: Right-click download options disabled
 5. **Notebook Exports**: Export functionality disabled
 
-## Performance Impact
-
-### Minimal Overhead
-
-The blocking system introduces minimal performance overhead:
-
-- **HTTP Requests**: Blocked requests return immediately with 403 (no file I/O)
-- **Extension Loading**: One-time hook during startup
-- **Method Patching**: One-time replacement during initialization
-- **UI Elements**: Plugins disabled at load time
-
-### Memory Usage
-
-- **DownloadBlocker Class**: Lightweight RequestHandler (~1KB memory)
-- **Configuration Files**: Small JSON and Python files (~10KB total)
-- **Hook Functions**: Minimal closure overhead
-
-### Response Times
-
-- **Blocked Requests**: < 1ms response time (immediate 403)
-- **Normal Operations**: No measurable impact
-- **File Viewing**: Unaffected performance
-
 ## Maintenance Considerations
 
 ### Update Compatibility
@@ -410,15 +331,6 @@ Common issues and solutions:
 1. **No Blocking Messages**: Check if `jupyter_server_config.py` is loaded
 2. **Downloads Still Work**: Verify all layers are active with diagnostic tool
 3. **Extension Errors**: Check for jupyter-fs compatibility issues
-
-### Future Enhancements
-
-Potential improvements:
-
-1. **Enhanced Logging**: More detailed audit trails
-2. **Admin Interface**: Web-based security status dashboard
-3. **Granular Control**: Per-user or per-path download policies
-4. **Compliance Reporting**: Automated security compliance reports
 
 ## Conclusion
 
