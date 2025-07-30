@@ -107,5 +107,5 @@ c.ServerApp.open_browser = False
 c.ContentsManager.allow_hidden = False
 
 print(f"✅ {time.strftime('%H:%M:%S')} - Configuration loaded - Downloads BLOCKED")
-print(f"🔒 Multi-layer download blocking active (Core + jupyter-fs)")
+print(f"🔒 SINGLE layer download blocking active (URL patterns only)")
 print(f"📋 Users can view and edit files but cannot download them") 
