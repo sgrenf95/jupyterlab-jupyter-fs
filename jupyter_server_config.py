@@ -1,11 +1,13 @@
 # Jupyter Server Configuration with Download Blocking
-# SCIENTIFIC APPROACH: Testing one layer at a time
 
 import time
+import logging
 from tornado.web import RequestHandler
 from jupyterfs.metamanager import MetaManager
 
-print(f"🔒 {time.strftime('%H:%M:%S')} - Initializing download blocking...")
+# Initialize logger for config loading messages
+logger = logging.getLogger('jupyter_server_config')
+logger.setLevel(logging.INFO)
 
 class DownloadBlocker(RequestHandler):
     """Blocks all file download requests."""
@@ -18,14 +20,9 @@ class DownloadBlocker(RequestHandler):
     
     def get(self, *args, **kwargs):
         """Block download requests with 403 error."""
-        print(f"🚫 {time.strftime('%H:%M:%S')} - BLOCKED: {self.request.path}")
+        logger.warning(f"DOWNLOAD BLOCKED: {self.request.path}")
         self.set_status(403)
         self.set_header("Content-Type", "application/json")
-        self.write({
-            "error": "File downloads are disabled",
-            "message": "This JupyterLab instance does not permit file downloads",
-            "timestamp": time.strftime('%Y-%m-%d %H:%M:%S')
-        })
         self.finish()
     
     def post(self, *args, **kwargs): self.get(*args, **kwargs)
@@ -34,12 +31,6 @@ class DownloadBlocker(RequestHandler):
     def head(self, *args, **kwargs): self.get(*args, **kwargs)
 
 def hook_extension_loading():
-    """
-    FINAL TEST: ONLY the jupyter-fs extension hook
-    
-    HYPOTHESIS: If jupyter-fs handles ALL downloads (including standard Jupyter ones),
-    then we only need this ONE layer, not the FilesHandler replacement.
-    """
     try:
         import jupyterfs.extension as jfs_ext
         original_load = jfs_ext._load_jupyter_server_extension
@@ -49,10 +40,10 @@ def hook_extension_loading():
             try:
                 result = original_load(serverapp)
             except Exception as e:
-                print(f"⚠️ {time.strftime('%H:%M:%S')} - Extension load warning: {e}")
+                serverapp.log.warning(f"Extension load warning: {e}")
                 result = None
             
-            # THE ONLY BLOCKING LAYER: URL patterns that block all download requests
+            # URL patterns that block all download requests
             try:
                 web_app = serverapp.web_app
                 blocking_patterns = [
@@ -61,25 +52,20 @@ def hook_extension_loading():
                     (r".*/download/.*", DownloadBlocker),
                 ]
                 web_app.add_handlers(".*$", blocking_patterns)
-                print(f"✅ {time.strftime('%H:%M:%S')} - Added ONLY blocking layer (URL patterns)")
+                serverapp.log.info("Added blocking layer based on URL patterns")
             except Exception as e:
-                print(f"❌ {time.strftime('%H:%M:%S')} - CRITICAL: Could not add blocking handlers: {e}")
+                serverapp.log.error(f"CRITICAL: Could not add download blocking handlers: {e}")
             
-            print(f"🎯 {time.strftime('%H:%M:%S')} - SINGLE layer blocking active!")
             return result
         
         jfs_ext._load_jupyter_server_extension = blocking_load
-        print(f"✅ {time.strftime('%H:%M:%S')} - Hooked jupyter-fs extension (ONLY layer)")
         
     except Exception as e:
-        print(f"❌ {time.strftime('%H:%M:%S')} - CRITICAL: Extension hook failed: {e}")
+        logger.error(f"CRITICAL: Extension hook failed: {e}")
 
-# Initialize ONLY the extension hook
+# Initialize the extension hook
 hook_extension_loading()
 
-# REMOVED: FilesHandler replacement (testing if it's redundant)
-# REMOVED: Contents manager patching (testing if it's redundant)
-# HYPOTHESIS: This single extension hook blocks ALL downloads
 
 # Jupyter Server Configuration
 c = get_config()
@@ -105,7 +91,3 @@ c.ServerApp.allow_remote_access = True
 c.Application.log_level = "INFO"
 c.ServerApp.open_browser = False
 c.ContentsManager.allow_hidden = False
-
-print(f"✅ {time.strftime('%H:%M:%S')} - Configuration loaded - Downloads BLOCKED")
-print(f"🔒 SINGLE layer download blocking active (URL patterns only)")
-print(f"📋 Users can view and edit files but cannot download them") 
