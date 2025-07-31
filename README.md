@@ -66,7 +66,7 @@ Configure S3 via JupyterLab Settings:
 
 ## How It Works
 
-The download blocking system uses a **single, minimal layer** that intercepts all download requests at the web application level. After extensive testing, we discovered that only one mechanism is needed to block ALL downloads.
+The download blocking system intercepts all download requests at the web application level.
 
 ## Architecture
 
@@ -94,9 +94,9 @@ def hook_extension_loading():
         # Add URL patterns that block ALL download requests
         web_app = serverapp.web_app
         blocking_patterns = [
-            (r"/files/(.*)", DownloadBlocker),           # Standard Jupyter downloads
+            (r"/files/(.*)", DownloadBlocker),               # Standard Jupyter downloads
             (r"/api/contents/.*/download", DownloadBlocker), # API downloads
-            (r".*/download/.*", DownloadBlocker),        # Any download URLs
+            (r".*/download/.*", DownloadBlocker),            # Any download URLs
         ]
         web_app.add_handlers(".*$", blocking_patterns)
         
@@ -119,7 +119,6 @@ class DownloadBlocker(RequestHandler):
         self.set_header('X-Content-Type-Options', 'nosniff')
     
     def get(self, *args, **kwargs):
-        print(f"🚫 {time.strftime('%H:%M:%S')} - BLOCKED: {self.request.path}")
         self.set_status(403)
         self.write({
             "error": "File downloads are disabled",
@@ -128,7 +127,7 @@ class DownloadBlocker(RequestHandler):
         })
 ```
 
-## Why This Single Layer Works
+## Why it works
 
 1. **Perfect Timing**: Applied after jupyter-fs loads, so it overrides all download mechanisms
 2. **Comprehensive URL Coverage**: Pattern matching catches all possible download requests
@@ -141,8 +140,8 @@ class DownloadBlocker(RequestHandler):
 
 Successful blocking appears in logs as:
 ```bash
-🚫 16:19:10 - BLOCKED: /files/34697a73%3Arobots.txt
-🎯 16:19:08 - SINGLE layer blocking active!
+2025-07-31 10:46:54 - DOWNLOAD BLOCKED: /files/34697a73%3Arobots.txt
+2025-07-31 11:03:57 [W 2025-07-31 09:03:57.524 ServerApp] 403 GET /files/34697a73%3Asitemap.xml?_xsrf=[secret] (@172.17.0.1) 0.67ms referer=http://localhost:8888/lab
 ```
 
 ### Blocked Download Types
@@ -153,15 +152,3 @@ Successful blocking appears in logs as:
 - API calls to `/api/contents/*/download`
 - Any URL containing `/download/`
 - Both standard Jupyter and S3 files via jupyter-fs
-
-## Troubleshooting
-
-**Downloads still work?**
-- Check logs for `🎯 SINGLE layer blocking active!`
-- Verify jupyter-fs extension is loaded
-- Rebuild Docker image if config changes made
-
-**No blocking logs?**
-- Ensure `jupyter_server_config.py` is in `/home/jovyan/.jupyter/`
-- Check for error messages during container startup
-

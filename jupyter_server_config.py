@@ -10,7 +10,9 @@ logger = logging.getLogger('jupyter_server_config')
 logger.setLevel(logging.INFO)
 
 class DownloadBlocker(RequestHandler):
-    """Blocks all file download requests."""
+    """
+    Blocks all file download requests by returning 403 errors for all download attempts.
+    """
     
     def prepare(self):
         """Set security headers."""
@@ -47,9 +49,9 @@ def hook_extension_loading():
             try:
                 web_app = serverapp.web_app
                 blocking_patterns = [
-                    (r"/files/(.*)", DownloadBlocker),
-                    (r"/api/contents/.*/download", DownloadBlocker),
-                    (r".*/download/.*", DownloadBlocker),
+                    (r"/files/(.*)", DownloadBlocker),               # Standard Jupyter downloads
+                    (r"/api/contents/.*/download", DownloadBlocker), # API downloads
+                    (r".*/download/.*", DownloadBlocker),            # Any download URLs
                 ]
                 web_app.add_handlers(".*$", blocking_patterns)
                 serverapp.log.info("Added blocking layer based on URL patterns")
@@ -58,6 +60,7 @@ def hook_extension_loading():
             
             return result
         
+        # Replace the extension loading function
         jfs_ext._load_jupyter_server_extension = blocking_load
         
     except Exception as e:
