@@ -142,7 +142,7 @@ class DownloadBlocker(RequestHandler):
 ```
 
 **Security Features:**
-- **HTTP Method Coverage**: Blocks GET, POST, PUT, DELETE, HEAD
+- **HTTP Method Coverage**: Blocks GET requests
 - **Security Headers**: CSP, download prevention, MIME-sniffing protection
 - **Audit Trail**: Logs all blocked attempts with timestamps
 - **User Feedback**: Returns structured error responses
